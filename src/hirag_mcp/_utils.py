@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 import tiktoken
+from contextlib import contextmanager
 
 logger = logging.getLogger("HiRAG")
 ENCODER = None
@@ -266,3 +267,55 @@ def wrap_embedding_func_with_attrs(**kwargs):
         return new_func
 
     return final_decro
+
+@contextmanager
+def timer():
+    start_time = time.perf_counter()
+    try:
+        yield
+    finally:
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+        logging.info(f"[Retrieval Time: {elapsed_time:.6f} seconds]")
+
+async def _handle_single_entity_extraction(
+    record_attributes: list[str],
+    chunk_key: str,
+):
+    if len(record_attributes) < 4 or record_attributes[0] != '"entity"':
+        return None
+    # add this record as a node in the G
+    entity_name = clean_str(record_attributes[1].upper())
+    if not entity_name.strip():
+        return None
+    entity_type = clean_str(record_attributes[2].upper())
+    entity_description = clean_str(record_attributes[3])
+    entity_source_id = chunk_key
+    return dict(
+        entity_name=entity_name,
+        entity_type=entity_type,
+        description=entity_description,
+        source_id=entity_source_id,
+    )
+
+
+async def _handle_single_relationship_extraction(
+    record_attributes: list[str],
+    chunk_key: str,
+):
+    if len(record_attributes) < 5 or record_attributes[0] != '"relationship"':
+        return None
+    # add this record as edge
+    source = clean_str(record_attributes[1].upper())
+    target = clean_str(record_attributes[2].upper())
+    edge_description = clean_str(record_attributes[3])
+    weight = (
+        float(record_attributes[-1]) if is_float_regex(record_attributes[-1]) else 1.0
+    )
+    return dict(
+        src_id=source,
+        tgt_id=target,
+        weight=weight,
+        description=edge_description,
+        source_id=chunk_key,
+    )

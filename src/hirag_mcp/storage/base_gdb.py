@@ -4,11 +4,7 @@ from typing import List
 
 class BaseGDB(ABC):
     @abstractmethod
-    async def upsert_nodes(self, nodes: List[Entity]):
-        raise NotImplementedError
-
-    @abstractmethod
-    async def upsert_relations(self, relations: List[Relation]):
+    async def upsert_relation(self, relation: Relation):
         raise NotImplementedError
 
     @abstractmethod

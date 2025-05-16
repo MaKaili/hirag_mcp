@@ -16,7 +16,7 @@ class NetworkXGDB(BaseGDB):
     path: str
     graph: nx.DiGraph
     llm_func: Callable
-    summarizer: BaseSummarizer
+    summarizer: Optional[BaseSummarizer]
 
     @classmethod
     def create(
@@ -123,11 +123,6 @@ class NetworkXGDB(BaseGDB):
         except Exception as e:
             # TODO: handle the exception
             raise e
-
-    async def upsert_relations(self, relations: List[Relation]):
-        await asyncio.gather(
-            *[self.upsert_relation(relation) for relation in relations]
-        )
 
     async def query_node(self, node_id: str) -> Entity:
         node = self.graph.nodes[node_id]

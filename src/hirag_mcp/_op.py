@@ -202,7 +202,6 @@ async def _handle_single_relationship_extraction(
     source = clean_str(record_attributes[1].upper())
     target = clean_str(record_attributes[2].upper())
     edge_description = clean_str(record_attributes[3])
-    edge_source_id = chunk_key
     weight = (
         float(record_attributes[-1]) if is_float_regex(record_attributes[-1]) else 1.0
     )
@@ -211,7 +210,7 @@ async def _handle_single_relationship_extraction(
         tgt_id=target,
         weight=weight,
         description=edge_description,
-        source_id=edge_source_id,
+        source_id=chunk_key,
     )
 
 

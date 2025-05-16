@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 
 import numpy as np
-from nano_vectordb import NanoVectorDB
+from .dbs import NanoVectorDB
 
 from .._utils import logger
 from ..base import BaseVectorStorage

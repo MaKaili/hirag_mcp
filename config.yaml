@@ -2,7 +2,7 @@
 openai:
   embedding_model: "text-embedding-ada-002"
   model: "gpt-4o-mini"
-  api_key: "***"
+  api_key: "0f93e538788f4ff691119a943b130d00"
   base_url: "https://api.aimlapi.com/v1"
 
 # GLM Configuration

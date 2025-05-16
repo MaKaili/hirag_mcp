@@ -24,3 +24,10 @@ class Entity(BaseModel):
             page_content=self.page_content,
             metadata=self.metadata.dict()
         )
+    
+    def to_flat_dict(self):
+        return {
+            "id": self.id,
+            "page_content": self.page_content,
+            **self.metadata.dict()
+        }

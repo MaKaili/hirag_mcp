@@ -5,6 +5,7 @@ import logging
 import numbers
 import os
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
 from hashlib import md5
@@ -12,7 +13,6 @@ from typing import Any
 
 import numpy as np
 import tiktoken
-from contextlib import contextmanager
 
 logger = logging.getLogger("HiRAG")
 ENCODER = None
@@ -225,6 +225,7 @@ def clean_str(input: Any) -> str:
     result = result.strip('"')
     return result
 
+
 # Utils types -----------------------------------------------------------------------
 @dataclass
 class EmbeddingFunc:
@@ -268,6 +269,7 @@ def wrap_embedding_func_with_attrs(**kwargs):
 
     return final_decro
 
+
 @contextmanager
 def timer():
     start_time = time.perf_counter()
@@ -277,6 +279,7 @@ def timer():
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
         logging.info(f"[Retrieval Time: {elapsed_time:.6f} seconds]")
+
 
 async def _handle_single_entity_extraction(
     record_attributes: list[str],

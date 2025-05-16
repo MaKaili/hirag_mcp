@@ -1,9 +1,11 @@
-from hirag_mcp.schema import Chunk, File
 from langchain_text_splitters import Tokenizer
 from langchain_text_splitters.base import split_text_on_tokens
 
-from .base_chunk import BaseChunk
 from hirag_mcp._utils import compute_mdhash_id
+from hirag_mcp.schema import Chunk, File
+
+from .base_chunk import BaseChunk
+
 
 class FixTokenChunk(BaseChunk):
     def __init__(self, chunk_size: int, chunk_overlap: int):
@@ -23,16 +25,16 @@ class FixTokenChunk(BaseChunk):
         )
         metadata = document.metadata
         document_id = document.id
-        
+
         return [
             Chunk(
-                id=compute_mdhash_id(chunk, prefix="chunk-"), 
-                page_content=chunk, 
+                id=compute_mdhash_id(chunk, prefix="chunk-"),
+                page_content=chunk,
                 metadata={
                     **metadata.__dict__,  # Get all attributes from metadata object
-                    "chunk_idx": chunk_idx, 
-                    "document_id": document_id
-                }
+                    "chunk_idx": chunk_idx,
+                    "document_id": document_id,
+                },
             )
             for chunk_idx, chunk in enumerate(chunks)
         ]

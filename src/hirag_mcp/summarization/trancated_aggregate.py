@@ -1,8 +1,8 @@
-from hirag_mcp._utils import (decode_tokens_by_tiktoken,
-                              encode_string_by_tiktoken)
-from hirag_mcp.prompt import PROMPTS
-from typing import Callable, List
 import random
+from typing import Callable, List
+
+from hirag_mcp._utils import decode_tokens_by_tiktoken, encode_string_by_tiktoken
+from hirag_mcp.prompt import PROMPTS
 
 from .base import BaseSummarizer
 
@@ -42,7 +42,7 @@ class TrancatedAggregateSummarizer(BaseSummarizer):
         )
         if len(tokens) < self.input_max_tokens:
             descriptions_for_prompt = descriptions
-        else:   
+        else:
             descriptions_for_prompt = decode_tokens_by_tiktoken(
                 tokens[: self.input_max_tokens], model_name=self.tiktoken_model_name
             ).split(sep)
@@ -51,7 +51,7 @@ class TrancatedAggregateSummarizer(BaseSummarizer):
 
         context_for_prompt = {
             "entity_name": entity_name,
-            "description_list": descriptions_for_prompt
+            "description_list": descriptions_for_prompt,
         }
 
         use_prompt = summary_prompt_template.format(**context_for_prompt)

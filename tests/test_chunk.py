@@ -1,7 +1,8 @@
 import os
+
+
 from hirag_mcp.chunk import FixTokenChunk
 from hirag_mcp.loader import load_document
-import pytest
 
 
 def test_chunk_documents():
@@ -22,7 +23,7 @@ def test_chunk_documents():
     for document in documents:
         chunks = chunker.chunk(document)
         chunked_docs.extend(chunks)
-        
+
     # Verify the chunking results
     assert chunked_docs is not None
     assert len(chunked_docs) > 0

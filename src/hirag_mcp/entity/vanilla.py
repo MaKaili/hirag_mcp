@@ -5,15 +5,16 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List
 
-from hirag_mcp._utils import (compute_mdhash_id,
-                              pack_user_ass_to_openai_messages,
-                              split_string_by_multi_markers,
-                              _handle_single_entity_extraction,
-                              _handle_single_relationship_extraction)
+from hirag_mcp._utils import (
+    _handle_single_entity_extraction,
+    _handle_single_relationship_extraction,
+    compute_mdhash_id,
+    pack_user_ass_to_openai_messages,
+    split_string_by_multi_markers,
+)
 from hirag_mcp.prompt import PROMPTS
 from hirag_mcp.schema import Chunk, Entity, Relation
-from hirag_mcp.summarization import (BaseSummarizer,
-                                     TrancatedAggregateSummarizer)
+from hirag_mcp.summarization import BaseSummarizer, TrancatedAggregateSummarizer
 
 from .base import BaseEntity
 
@@ -26,44 +27,50 @@ class VanillaEntity(BaseEntity):
     # Summarizer for entity descriptions
     entity_description_summarizer: BaseSummarizer = field(default=None)
     # Prompt for continuing entity extraction
-    continue_prompt: str = field(default_factory=lambda: PROMPTS["entity_continue_extraction"])
+    continue_prompt: str = field(
+        default_factory=lambda: PROMPTS["entity_continue_extraction"]
+    )
 
     # === Entity Extraction Parameters ===
     # Main prompt for entity extraction
-    entity_extract_prompt: str = field(default_factory=lambda: PROMPTS[
-        "entity_extraction"
-    ])
+    entity_extract_prompt: str = field(
+        default_factory=lambda: PROMPTS["entity_extraction"]
+    )
     # Max iterations for entity extraction
     entity_extract_max_gleaning: int = field(default_factory=lambda: 1)
     # Prompt to determine when to stop entity extraction
-    entity_extract_termination_prompt: str = field(default_factory=lambda: PROMPTS[
-        "entity_if_loop_extraction"
-    ])
+    entity_extract_termination_prompt: str = field(
+        default_factory=lambda: PROMPTS["entity_if_loop_extraction"]
+    )
     # Context variables for entity extraction
-    entity_extract_context: dict = field(default_factory=lambda: {
-        "tuple_delimiter": PROMPTS["DEFAULT_TUPLE_DELIMITER"],
-        "record_delimiter": PROMPTS["DEFAULT_RECORD_DELIMITER"],
-        "completion_delimiter": PROMPTS["DEFAULT_COMPLETION_DELIMITER"],
-        "entity_types": ",".join(PROMPTS["DEFAULT_ENTITY_TYPES"]),
-    })
+    entity_extract_context: dict = field(
+        default_factory=lambda: {
+            "tuple_delimiter": PROMPTS["DEFAULT_TUPLE_DELIMITER"],
+            "record_delimiter": PROMPTS["DEFAULT_RECORD_DELIMITER"],
+            "completion_delimiter": PROMPTS["DEFAULT_COMPLETION_DELIMITER"],
+            "entity_types": ",".join(PROMPTS["DEFAULT_ENTITY_TYPES"]),
+        }
+    )
 
     # === Relation Extraction Parameters ===
     # Main prompt for relation extraction
-    relation_extract_prompt: str = field(default_factory=lambda: PROMPTS[
-        "hi_relation_extraction"
-    ])
+    relation_extract_prompt: str = field(
+        default_factory=lambda: PROMPTS["hi_relation_extraction"]
+    )
     # Max iterations for relation extraction
     relation_extract_max_gleaning: int = field(default_factory=lambda: 1)
     # Prompt to determine when to stop relation extraction
-    relation_extract_termination_prompt: str = field(default_factory=lambda: PROMPTS[
-        "relation_if_loop_extraction"
-    ])
+    relation_extract_termination_prompt: str = field(
+        default_factory=lambda: PROMPTS["relation_if_loop_extraction"]
+    )
     # Context variables for relation extraction
-    relation_extract_context: dict = field(default_factory=lambda: {
-        "tuple_delimiter": PROMPTS["DEFAULT_TUPLE_DELIMITER"],
-        "record_delimiter": PROMPTS["DEFAULT_RECORD_DELIMITER"],
-        "completion_delimiter": PROMPTS["DEFAULT_COMPLETION_DELIMITER"],
-    })
+    relation_extract_context: dict = field(
+        default_factory=lambda: {
+            "tuple_delimiter": PROMPTS["DEFAULT_TUPLE_DELIMITER"],
+            "record_delimiter": PROMPTS["DEFAULT_RECORD_DELIMITER"],
+            "completion_delimiter": PROMPTS["DEFAULT_COMPLETION_DELIMITER"],
+        }
+    )
 
     @classmethod
     def create(cls, **kwargs):

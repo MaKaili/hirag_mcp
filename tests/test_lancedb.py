@@ -1,14 +1,12 @@
-from hirag_mcp.storage.lancedb import LanceDB
-from hirag_mcp._llm import openai_embedding
-from dataclasses import field
-import lancedb
-from hirag_mcp._utils import limit_async_func_call
-from hirag_mcp.storage.retrieval_strategy_provider import RetrievalStrategyProvider
-import pytest
-import asyncio
-from hirag_mcp.schema import Entity
-import pandas as pd
 import os
+
+import pytest
+
+from hirag_mcp._llm import openai_embedding
+from hirag_mcp.schema import Entity
+from hirag_mcp.storage.lancedb import LanceDB
+from hirag_mcp.storage.retrieval_strategy_provider import RetrievalStrategyProvider
+
 
 @pytest.mark.asyncio
 async def test_lancedb():
@@ -138,4 +136,11 @@ async def test_lancedb_with_entity():
             mode="overwrite",
         )
     table = await lance_db.get_table("test_entity")
-    assert set(table.schema.names) == {"text", "document_key", "entity_type", "description", "chunk_ids", "vector"}
+    assert set(table.schema.names) == {
+        "text",
+        "document_key",
+        "entity_type",
+        "description",
+        "chunk_ids",
+        "vector",
+    }

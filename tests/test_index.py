@@ -1,7 +1,9 @@
-from hirag_mcp import HiRAG
-import pytest
-import asyncio
 import os
+
+import pytest
+
+from hirag_mcp import HiRAG
+
 
 @pytest.mark.asyncio
 @pytest.mark.skip(reason="Skip the test for it is time-consuming")

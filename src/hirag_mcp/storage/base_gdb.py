@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from hirag_mcp.schema import Relation, Entity
 from typing import List
+
+from hirag_mcp.schema import Entity, Relation
+
 
 class BaseGDB(ABC):
     @abstractmethod

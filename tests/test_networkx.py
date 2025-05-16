@@ -1,5 +1,3 @@
-import asyncio
-from typing import Callable
 
 import pytest
 
@@ -309,7 +307,15 @@ async def test_query_one_hop():
     neighbors, edges = await gdb.query_one_hop("ent-8ac4883b1b6f421ea5f0196eb317b2ba")
     assert len(neighbors) == 2
     assert len(edges) == 2
-    assert set([n.id for n in neighbors]) == {"ent-3ff39c0f9a2e36a5d47ded059ba14673", "ent-2a422318fc58c5302a5ba9365bcbc0be"}
-    assert set([e.source.id for e in edges]) == {"ent-8ac4883b1b6f421ea5f0196eb317b2ba", "ent-8ac4883b1b6f421ea5f0196eb317b2ba"}
-    assert set([e.target.id for e in edges]) == {"ent-3ff39c0f9a2e36a5d47ded059ba14673", "ent-2a422318fc58c5302a5ba9365bcbc0be"}
-    
+    assert set([n.id for n in neighbors]) == {
+        "ent-3ff39c0f9a2e36a5d47ded059ba14673",
+        "ent-2a422318fc58c5302a5ba9365bcbc0be",
+    }
+    assert set([e.source.id for e in edges]) == {
+        "ent-8ac4883b1b6f421ea5f0196eb317b2ba",
+        "ent-8ac4883b1b6f421ea5f0196eb317b2ba",
+    }
+    assert set([e.target.id for e in edges]) == {
+        "ent-3ff39c0f9a2e36a5d47ded059ba14673",
+        "ent-2a422318fc58c5302a5ba9365bcbc0be",
+    }

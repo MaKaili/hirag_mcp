@@ -1,7 +1,7 @@
 import os
 
+
 from hirag_mcp.loader import load_document
-import pytest
 
 
 def test_load_pdf():

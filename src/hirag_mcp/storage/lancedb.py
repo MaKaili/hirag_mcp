@@ -1,8 +1,11 @@
-from typing import List, Literal, Optional
-from hirag_mcp.storage.base_vdb import BaseVDB
-import lancedb
-from hirag_mcp._utils import EmbeddingFunc
 from dataclasses import dataclass
+from typing import List, Literal, Optional
+
+import lancedb
+
+from hirag_mcp._utils import EmbeddingFunc
+from hirag_mcp.storage.base_vdb import BaseVDB
+
 from .retrieval_strategy_provider import RetrievalStrategyProvider
 
 THRESHOLD_DISTANCE = 0.3
@@ -20,7 +23,7 @@ class LanceDB(BaseVDB):
         cls,
         embedding_func: EmbeddingFunc,
         db_url: str,
-        strategy_provider: RetrievalStrategyProvider
+        strategy_provider: RetrievalStrategyProvider,
     ):
         db = await lancedb.connect_async(db_url)
         return cls(embedding_func, db, strategy_provider)
@@ -73,8 +76,7 @@ class LanceDB(BaseVDB):
         if require_access is not None:
             query = query.where(f"private = {require_access == 'private'}")
         return query
-    
-    
+
     async def query(
         self,
         query: str,
@@ -124,9 +126,9 @@ class LanceDB(BaseVDB):
         query = self.strategy_provider.rerank_chunk_query(query, query)
 
         return await query.to_list()
-    
+
     async def get_table(self, table_name: str) -> str:
         """Get a table from the database."""
         table = await self.db.open_table(table_name)
         data = await table.to_arrow()
-        return data 
+        return data

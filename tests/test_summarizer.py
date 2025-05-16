@@ -1,7 +1,8 @@
-from hirag_mcp.summarization import TrancatedAggregateSummarizer
-from hirag_mcp._llm import gpt_4o_mini_complete
-import asyncio
+
 import pytest
+
+from hirag_mcp._llm import gpt_4o_mini_complete
+from hirag_mcp.summarization import TrancatedAggregateSummarizer
 
 
 @pytest.mark.asyncio

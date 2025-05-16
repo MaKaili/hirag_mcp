@@ -2,8 +2,9 @@ import time
 from typing import List, Optional, Union
 
 import requests
-from hirag_mcp.schema import File
 from requests_toolbelt.multipart.encoder import MultipartEncoder
+
+from hirag_mcp.schema import File
 
 from .csv_loader import CSVLoader
 from .excel_loader import ExcelLoader

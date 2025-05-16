@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List
 from dataclasses import dataclass
+from typing import Callable, List
+
 
 @dataclass
 class BaseEntity(ABC):

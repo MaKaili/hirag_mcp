@@ -4,8 +4,10 @@ from abc import ABC
 from typing import List, Optional, Type
 
 from langchain_core.document_loaders import BaseLoader as LangchainBaseLoader
-from hirag_mcp.schema import File
+
 from hirag_mcp._utils import compute_mdhash_id
+from hirag_mcp.schema import File
+
 
 class BaseLoader(ABC):
     """Base class for all loaders"""
@@ -38,9 +40,7 @@ class BaseLoader(ABC):
         self._set_doc_metadata(raw_docs, document_meta)
         return raw_docs
 
-    def _set_doc_metadata(
-        self, files: List[File], document_meta: dict
-    ) -> List[File]:
+    def _set_doc_metadata(self, files: List[File], document_meta: dict) -> List[File]:
         for file in files:
             document_meta[self.page_number_key] = None
             file.metadata = document_meta

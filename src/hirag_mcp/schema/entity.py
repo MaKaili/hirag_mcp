@@ -1,13 +1,16 @@
+from typing import List
+
 from pydantic import BaseModel, field_validator
-from typing import List, Any, Dict
+
 
 class EntityMetadata(BaseModel):
     entity_type: str
     description: str
     chunk_ids: List[str]
 
+
 class Entity(BaseModel):
-    id: str  
+    id: str
     page_content: str
     metadata: EntityMetadata
 
@@ -20,14 +23,12 @@ class Entity(BaseModel):
 
     def to_document(self):
         from langchain_core.documents import Document
-        return Document(
-            page_content=self.page_content,
-            metadata=self.metadata.dict()
-        )
-    
+
+        return Document(page_content=self.page_content, metadata=self.metadata.dict())
+
     def to_flat_dict(self):
         return {
             "id": self.id,
             "page_content": self.page_content,
-            **self.metadata.dict()
+            **self.metadata.dict(),
         }

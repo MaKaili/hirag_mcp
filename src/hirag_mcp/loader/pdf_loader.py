@@ -2,7 +2,7 @@ import warnings
 from typing import List
 
 from langchain_community import document_loaders
-from Sagi.doc_db.loaders.base_loader import BaseLoader
+from hirag_mcp.loader.base_loader import BaseLoader
 
 from hirag_mcp._utils import compute_mdhash_id
 from hirag_mcp.schema import File

@@ -1,5 +1,5 @@
 from langchain_community import document_loaders
-from Sagi.doc_db.loaders.base_loader import BaseLoader
+from hirag_mcp.loader.base_loader import BaseLoader
 
 
 class CSVLoader(BaseLoader):

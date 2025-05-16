@@ -18,3 +18,8 @@ Then create the `.env` file and replace the placeholders with your own values:
 ```bash
 cp .env.example .env
 ```
+
+Run the script:
+```bash
+python main.py
+```

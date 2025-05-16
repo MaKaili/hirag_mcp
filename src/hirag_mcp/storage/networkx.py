@@ -148,6 +148,7 @@ class NetworkXGDB(BaseGDB):
         ), await asyncio.gather(*[self.query_edge(edge) for edge in edges])
 
     async def dump(self):
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with open(self.path, "wb") as f:
             pickle.dump(self.graph, f, pickle.HIGHEST_PROTOCOL)
 

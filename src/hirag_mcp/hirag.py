@@ -5,9 +5,10 @@ import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Coroutine, Optional
+from typing import Optional
 
 from hirag_mcp._llm import gpt_4o_mini_complete, openai_embedding
+from hirag_mcp._utils import _limited_gather
 from hirag_mcp.chunk import BaseChunk, FixTokenChunk
 from hirag_mcp.entity import BaseEntity, VanillaEntity
 from hirag_mcp.loader import load_document
@@ -76,18 +77,6 @@ class HiRAG:
             )
         return cls._chunk_pool
 
-    async def _limited_gather(self, coros: list[Coroutine], max_concurrency: int):
-        """
-        Concurrently schedule coroutines in the coros list, with at most max_concurrency running simultaneously.
-        """
-        sem = asyncio.Semaphore(max_concurrency)
-
-        async def _worker(coro):
-            async with sem:
-                return await coro
-
-        return await asyncio.gather(*[_worker(coro) for coro in coros])
-
     chunk_upsert_concurrency: int = 4
     entity_upsert_concurrency: int = 4
     relation_upsert_concurrency: int = 2
@@ -110,7 +99,7 @@ class HiRAG:
             )
             for chunk in chunks
         ]
-        await self._limited_gather(chunk_coros, self.chunk_upsert_concurrency)
+        await _limited_gather(chunk_coros, self.chunk_upsert_concurrency)
 
         entities = await self.entity_extractor.entity(chunks)
         entity_coros = [
@@ -126,11 +115,11 @@ class HiRAG:
             )
             for ent in entities
         ]
-        await self._limited_gather(entity_coros, self.entity_upsert_concurrency)
+        await _limited_gather(entity_coros, self.entity_upsert_concurrency)
 
         relations = await self.entity_extractor.relation(chunks, entities)
         relation_coros = [self.gdb.upsert_relation(rel) for rel in relations]
-        await self._limited_gather(relation_coros, self.relation_upsert_concurrency)
+        await _limited_gather(relation_coros, self.relation_upsert_concurrency)
 
     async def insert_to_kb(
         self,

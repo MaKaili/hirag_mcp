@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import multiprocessing
+import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -50,6 +52,8 @@ class HiRAG:
         )
     )
 
+    _chunk_pool: ProcessPoolExecutor | None = None
+
     @classmethod
     async def create(cls, **kwargs):
         if kwargs.get("vdb") is None:
@@ -61,14 +65,29 @@ class HiRAG:
             kwargs["vdb"] = lancedb
         return cls(**kwargs)
 
-    async def _process_document(self, document):
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as pool:
-            chunks = await loop.run_in_executor(pool, self.chunker.chunk, document)
+    @classmethod
+    def _get_pool(cls) -> ProcessPoolExecutor:
+        if cls._chunk_pool is None:
+            ctx = multiprocessing.get_context("spawn")
+            cpu = os.cpu_count() or 1
+            cls._chunk_pool = ProcessPoolExecutor(
+                max_workers=cpu,
+                mp_context=ctx,
+            )
+        return cls._chunk_pool
 
-        await asyncio.gather(
-            *[
-                self.vdb.upsert_text(
+    async def _process_document(self, document):
+        loop = asyncio.get_running_loop()
+        pool = self._get_pool()
+        chunks = await loop.run_in_executor(pool, self.chunker.chunk, document)
+
+        # set semaphore count
+        limit_semaphore = 30
+        sem = asyncio.Semaphore(limit_semaphore)
+
+        async def _upsert_chunk(chunk):
+            async with sem:
+                await self.vdb.upsert_text(
                     text_to_embed=chunk.page_content,
                     properties={
                         "document_key": chunk.id,
@@ -78,15 +97,14 @@ class HiRAG:
                     table_name="chunks",
                     mode="overwrite",
                 )
-                for chunk in chunks
-            ]
-        )
+
+        await asyncio.gather(*[_upsert_chunk(chunk) for chunk in chunks])
 
         entities = await self.entity_extractor.entity(chunks)
 
-        await asyncio.gather(
-            *[
-                self.vdb.upsert_text(
+        async def _upsert_entity(entity):
+            async with sem:
+                await self.vdb.upsert_text(
                     text_to_embed=entity.metadata.description,
                     properties={
                         "document_key": entity.id,
@@ -96,13 +114,16 @@ class HiRAG:
                     table_name="entities",
                     mode="overwrite",
                 )
-                for entity in entities
-            ]
-        )
+
+        await asyncio.gather(*[_upsert_entity(entity) for entity in entities])
 
         relations = await self.entity_extractor.relation(chunks, entities)
 
-        await asyncio.gather(*[self.gdb.upsert_relation(r) for r in relations])
+        async def _upsert_relation(relation):
+            async with sem:
+                await self.gdb.upsert_relation(relation)
+
+        await asyncio.gather(*[_upsert_relation(relation) for relation in relations])
 
     async def insert_to_kb(
         self,
@@ -112,8 +133,13 @@ class HiRAG:
         loader_configs: Optional[dict] = None,
     ):
         start_total = time.perf_counter()
-        documents = load_document(
-            document_path, content_type, document_meta, loader_configs
+        # change to a async function
+        documents = await asyncio.to_thread(
+            load_document,
+            document_path,
+            content_type,
+            document_meta,
+            loader_configs,
         )
 
         tasks = [self._process_document(doc) for doc in documents]

@@ -1,7 +1,11 @@
+import asyncio
 import logging
+import multiprocessing
+import os
+import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Optional
-
+from typing import Coroutine, Optional
 
 from hirag_mcp._llm import gpt_4o_mini_complete, openai_embedding
 from hirag_mcp.chunk import BaseChunk, FixTokenChunk
@@ -15,7 +19,16 @@ from hirag_mcp.storage import (
     RetrievalStrategyProvider,
 )
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+logging.getLogger("HiRAG").setLevel(logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("HiRAG")
+logger = logging.getLogger("HiRAG-BENCH")
 
 
 @dataclass
@@ -39,6 +52,8 @@ class HiRAG:
         )
     )
 
+    _chunk_pool: ProcessPoolExecutor | None = None
+
     @classmethod
     async def create(cls, **kwargs):
         if kwargs.get("vdb") is None:
@@ -50,6 +65,73 @@ class HiRAG:
             kwargs["vdb"] = lancedb
         return cls(**kwargs)
 
+    @classmethod
+    def _get_pool(cls) -> ProcessPoolExecutor:
+        if cls._chunk_pool is None:
+            ctx = multiprocessing.get_context("spawn")
+            cpu = os.cpu_count() or 1
+            cls._chunk_pool = ProcessPoolExecutor(
+                max_workers=cpu,
+                mp_context=ctx,
+            )
+        return cls._chunk_pool
+
+    async def _limited_gather(self, coros: list[Coroutine], max_concurrency: int):
+        """
+        Concurrently schedule coroutines in the coros list, with at most max_concurrency running simultaneously.
+        """
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def _worker(coro):
+            async with sem:
+                return await coro
+
+        return await asyncio.gather(*[_worker(coro) for coro in coros])
+
+    chunk_upsert_concurrency: int = 4
+    entity_upsert_concurrency: int = 4
+    relation_upsert_concurrency: int = 2
+
+    async def _process_document(self, document):
+        loop = asyncio.get_running_loop()
+        pool = self._get_pool()
+        chunks = await loop.run_in_executor(pool, self.chunker.chunk, document)
+
+        chunk_coros = [
+            self.vdb.upsert_text(
+                text_to_embed=chunk.page_content,
+                properties={
+                    "document_key": chunk.id,
+                    "text": chunk.page_content,
+                    **chunk.metadata.__dict__,
+                },
+                table_name="chunks",
+                mode="overwrite",
+            )
+            for chunk in chunks
+        ]
+        await self._limited_gather(chunk_coros, self.chunk_upsert_concurrency)
+
+        entities = await self.entity_extractor.entity(chunks)
+        entity_coros = [
+            self.vdb.upsert_text(
+                text_to_embed=ent.metadata.description,
+                properties={
+                    "document_key": ent.id,
+                    "text": ent.page_content,
+                    **ent.metadata.__dict__,
+                },
+                table_name="entities",
+                mode="overwrite",
+            )
+            for ent in entities
+        ]
+        await self._limited_gather(entity_coros, self.entity_upsert_concurrency)
+
+        relations = await self.entity_extractor.relation(chunks, entities)
+        relation_coros = [self.gdb.upsert_relation(rel) for rel in relations]
+        await self._limited_gather(relation_coros, self.relation_upsert_concurrency)
+
     async def insert_to_kb(
         self,
         document_path: str,
@@ -57,45 +139,18 @@ class HiRAG:
         document_meta: Optional[dict] = None,
         loader_configs: Optional[dict] = None,
     ):
-        # Load the document from the document path
-        logger.info(f"Loading the document from the document path: {document_path}")
-        documents = load_document(
-            document_path, content_type, document_meta, loader_configs
+        start_total = time.perf_counter()
+        # change to a async function
+        documents = await asyncio.to_thread(
+            load_document,
+            document_path,
+            content_type,
+            document_meta,
+            loader_configs,
         )
-        logger.info(f"Loaded {len(documents)} documents")
 
-        logger.info("Chunking the documents")
-        # TODO: Handle the concurrent upsertion
-        for document in documents:
-            chunks = self.chunker.chunk(document)
-            # TODO: Handle the concurrent upsertion
-            for chunk in chunks:
-                await self.vdb.upsert_text(
-                    text_to_embed=chunk.page_content,
-                    properties={
-                        "document_key": chunk.id,
-                        "text": chunk.page_content,
-                        **chunk.metadata.__dict__,
-                    },
-                    table_name="chunks",
-                    mode="overwrite",
-                )
-            entities = await self.entity_extractor.entity(chunks)
-            # Store to lancedb for now
-            for entity in entities:
-                await self.vdb.upsert_text(
-                    text_to_embed=entity.metadata.description,
-                    properties={
-                        "document_key": entity.id,
-                        "text": entity.page_content,
-                        **entity.metadata.__dict__,
-                    },
-                    table_name="entities",
-                    mode="overwrite",
-                )
+        tasks = [self._process_document(doc) for doc in documents]
 
-            # extract relations
-            relations = await self.entity_extractor.relation(chunks, entities)
-            # TODO: handle the concurrent upsertion
-            for relation in relations:
-                await self.gdb.upsert_relation(relation)
+        await asyncio.gather(*tasks)
+        total = time.perf_counter() - start_total
+        logger.info(f"Total pipeline time: {total:.3f}s")

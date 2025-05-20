@@ -5,7 +5,7 @@ import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Coroutine, Optional
 
 from hirag_mcp._llm import gpt_4o_mini_complete, openai_embedding
 from hirag_mcp.chunk import BaseChunk, FixTokenChunk
@@ -76,54 +76,61 @@ class HiRAG:
             )
         return cls._chunk_pool
 
+    async def _limited_gather(self, coros: list[Coroutine], max_concurrency: int):
+        """
+        Concurrently schedule coroutines in the coros list, with at most max_concurrency running simultaneously.
+        """
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def _worker(coro):
+            async with sem:
+                return await coro
+
+        return await asyncio.gather(*[_worker(coro) for coro in coros])
+
+    chunk_upsert_concurrency: int = 4
+    entity_upsert_concurrency: int = 4
+    relation_upsert_concurrency: int = 2
+
     async def _process_document(self, document):
         loop = asyncio.get_running_loop()
         pool = self._get_pool()
         chunks = await loop.run_in_executor(pool, self.chunker.chunk, document)
 
-        # set semaphore count
-        limit_semaphore = 30
-        sem = asyncio.Semaphore(limit_semaphore)
-
-        async def _upsert_chunk(chunk):
-            async with sem:
-                await self.vdb.upsert_text(
-                    text_to_embed=chunk.page_content,
-                    properties={
-                        "document_key": chunk.id,
-                        "text": chunk.page_content,
-                        **chunk.metadata.__dict__,
-                    },
-                    table_name="chunks",
-                    mode="overwrite",
-                )
-
-        await asyncio.gather(*[_upsert_chunk(chunk) for chunk in chunks])
+        chunk_coros = [
+            self.vdb.upsert_text(
+                text_to_embed=chunk.page_content,
+                properties={
+                    "document_key": chunk.id,
+                    "text": chunk.page_content,
+                    **chunk.metadata.__dict__,
+                },
+                table_name="chunks",
+                mode="overwrite",
+            )
+            for chunk in chunks
+        ]
+        await self._limited_gather(chunk_coros, self.chunk_upsert_concurrency)
 
         entities = await self.entity_extractor.entity(chunks)
-
-        async def _upsert_entity(entity):
-            async with sem:
-                await self.vdb.upsert_text(
-                    text_to_embed=entity.metadata.description,
-                    properties={
-                        "document_key": entity.id,
-                        "text": entity.page_content,
-                        **entity.metadata.__dict__,
-                    },
-                    table_name="entities",
-                    mode="overwrite",
-                )
-
-        await asyncio.gather(*[_upsert_entity(entity) for entity in entities])
+        entity_coros = [
+            self.vdb.upsert_text(
+                text_to_embed=ent.metadata.description,
+                properties={
+                    "document_key": ent.id,
+                    "text": ent.page_content,
+                    **ent.metadata.__dict__,
+                },
+                table_name="entities",
+                mode="overwrite",
+            )
+            for ent in entities
+        ]
+        await self._limited_gather(entity_coros, self.entity_upsert_concurrency)
 
         relations = await self.entity_extractor.relation(chunks, entities)
-
-        async def _upsert_relation(relation):
-            async with sem:
-                await self.gdb.upsert_relation(relation)
-
-        await asyncio.gather(*[_upsert_relation(relation) for relation in relations])
+        relation_coros = [self.gdb.upsert_relation(rel) for rel in relations]
+        await self._limited_gather(relation_coros, self.relation_upsert_concurrency)
 
     async def insert_to_kb(
         self,

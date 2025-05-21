@@ -1,4 +1,3 @@
-import asyncio
 import re
 import warnings
 from collections import Counter, defaultdict
@@ -338,22 +337,28 @@ class VanillaEntity(BaseEntity):
                     relations.append(relation)
             return relations
 
-        relations_list = await asyncio.gather(
-            *[
-                _process_single_content_relation(
-                    chunk,
-                    {
-                        e.page_content: e
-                        for e in entities
-                        if chunk.id in e.metadata.chunk_ids
-                    },
-                )
-                for chunk in chunks
-            ]
+        relation_extraction_concurrency: int = 5
+
+        relation_coros = [
+            _process_single_content_relation(
+                chunk,
+                {
+                    e.page_content: e
+                    for e in entities
+                    if chunk.id in e.metadata.chunk_ids
+                },
+            )
+            for chunk in chunks
+        ]
+
+        relations_list = await _limited_gather(
+            relation_coros, relation_extraction_concurrency
         )
+
         relations = [
             relation for relation_list in relations_list for relation in relation_list
         ]
+
         # We do not merge relations here, because relations represents facts/relationships between entities
         # and it is supposed to have multiple relations between the same entities
         return relations
